@@ -2,7 +2,7 @@
 More prefixing to avoid NAME COLLISIONS
 */
 
-.joy-master, .joy-actions, .joy-button, .joy-scrubber, .joy-modal-chooser{
+.joy-master, .joy-ops, .joy-button, .joy-scrubber, .joy-modal-chooser{
 	-webkit-user-select: none;
 	-moz-user-select: none;
 	-ms-user-select: none;
@@ -12,23 +12,23 @@ More prefixing to avoid NAME COLLISIONS
 
 .joy-master{
 	display: block;
-    margin: 1.5em;
+    margin: 1.2em;
 }
 
 /***************/
 /* ACTIONS *****/
 /***************/
 
-.joy-actions{
+.joy-ops{
 	margin-top: 0.5em;
 	margin-bottom: 0.5em;
 	position: relative;
 }
 
-.joy-actions #joy-list{}
+.joy-ops #joy-list{}
 
 /* Entry */
-.joy-actions #joy-list > div{
+.joy-ops #joy-list > div{
 
 	overflow: hidden;
 
@@ -40,7 +40,7 @@ More prefixing to avoid NAME COLLISIONS
 	display: flex;
 
 }
-.joy-actions #joy-list > div #joy-bullet-container{
+.joy-ops #joy-list > div #joy-bullet-container{
 	/*float: left;*/
 	-webkit-box-flex: 1;
 	-moz-box-flex: 1;
@@ -50,7 +50,7 @@ More prefixing to avoid NAME COLLISIONS
 	flex: 1;
 	text-align: left;
 }
-.joy-actions #joy-list > div #joy-widget{
+.joy-ops #joy-list > div #joy-widget{
 	/*float: right;*/
 	width: calc(100% - 2em);
 	margin-bottom: 0.3em;
@@ -65,15 +65,16 @@ More prefixing to avoid NAME COLLISIONS
 }
 .joy-save input{
 	display: block;
-    width: calc(100% - 80px);
+    width: calc(100% - 60px);
     position: absolute;
-    top: 0;
-    right: 0;
+    top: 0px;
+    left: 62px;
 }
 .joy-save #joy-save-info{
-	position: absolute;
+	position: relative;
+	top: 10px;
     bottom: 0px;
-    left: 81px;
+    left: 10px;
     font-size: 12px;
     line-height: 1em;
 }
@@ -83,21 +84,21 @@ More prefixing to avoid NAME COLLISIONS
 /***************/
 
 .joy-button{
-	
+
 	display: inline-block;
 
-	line-height: 1.5em;
+	line-height: 1.3em;
 	padding: 0 0.3em;
 
 	border-radius: 5px;
 	border: 2px solid #ccc;
-	
+
 	cursor: pointer;
 
 }
 
 .joy-button.joy-bullet{
-	
+
 	border-radius: 1000px; /* infinite roundness */
 	width: 1.5em;
     height: 1.5em;
@@ -123,7 +124,7 @@ More prefixing to avoid NAME COLLISIONS
 
 .joy-button.joy-more{
 	border: none;
-    width: 10px;
+    width: 13px;
     height: 1em;
     padding: 0;
     position: relative;
@@ -159,7 +160,8 @@ More prefixing to avoid NAME COLLISIONS
 /***************/
 
 .joy-textbox{
-	font-size: 0.6em;
+	height: 20px;
+	font-size: 0.9em;
 	border-radius: 5px;
 	border: 1px solid rgba(0,0,0,0.2);
 	width: 100%;
@@ -168,10 +170,9 @@ More prefixing to avoid NAME COLLISIONS
     font-family: inherit;
     padding: 0.3em 0.4em;
     display: block;
-    background: #333;
-    color: #fff;
-    font-size: inherit;
-    font-size: 0.85em;
+    background: #dde2f3;
+    color: #2427de;
+    font-size: 0.9em;
 }
 textarea.joy-textbox{
 	resize: none;
@@ -257,10 +258,10 @@ textarea.joy-textbox{
 }
 
 #joy-modal #joy-box{
-	
+
 	position: absolute;
 
-	font-size: 0.69em;
+	font-size: 1em;
 	line-height: 1.3em;
 	color: #000;
 
@@ -320,8 +321,8 @@ textarea.joy-textbox{
 	border: 2px solid #ccc;
 }
 .arrow_box:after, .arrow_box:before {
-	
-	
+
+
 	border: solid transparent;
 	content: " ";
 	height: 0;
@@ -332,7 +333,7 @@ textarea.joy-textbox{
 .arrow_box:after {
 	border-color: rgba(255, 255, 255, 0);
 	border-width: 14px;
-	
+
 }
 .arrow_box:before {
 	border-color: rgba(221, 221, 221, 0);
