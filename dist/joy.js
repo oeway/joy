@@ -11,7 +11,7 @@ Created by Nicky Case http://ncase.me/
 // THE JOY MASTER
 function Joy(options){
 
-	// You can call this as "new Joy()" or just "Joy()" 
+	// You can call this as "new Joy()" or just "Joy()"
 	var self = (this==window) ? {} : this;
 
 	// Modules to import?
@@ -21,14 +21,14 @@ function Joy(options){
 		}
 	}
 
-	// I'm a Joy.Actor!
-	Joy.Actor.call(self, options);
+	// I'm a Joy.Op!
+	Joy.Op.call(self, options);
 
 	// Initialize References
 	Joy.initReferences(self);
 
-	// Allow previewing of... actions, numbers, variables?
-	if(self.previewActions==undefined) self.previewActions = true;
+	// Allow previewing of... ops, numbers, variables?
+	if(self.previewOps==undefined) self.previewOps = true;
 	if(self.previewNumbers==undefined) self.previewNumbers = true;
 	//if(self.previewVariables==undefined) self.previewVariables = false;
 	self.activePreview = null;
@@ -53,17 +53,17 @@ function Joy(options){
 	self.onupdate = self.onupdate || function(my){};
 	self.update = function(){
 
-		// Create a fake "my" 
+		// Create a fake "my"
 		var my = {
-			actor: self,
+			op: self,
 			data: {}
 		};
 
 		// Try to pre-evaluate all data beforehand!
-		self.children.forEach(function(childActor){
-			var dataID = childActor.dataID;
+		self.children.forEach(function(childOp){
+			var dataID = childOp.dataID;
 			if(dataID){
-				var value = childActor.get();
+				var value = childOp.get();
 				my.data[dataID] = value;
 			}
 		});
@@ -88,41 +88,41 @@ function Joy(options){
 
 ACTORS help the Player, Editor & Data talk to each other.
 
-To create an Actor, you need to pass it a "options" object like so:
+To create an Op, you need to pass it a "options" object like so:
 (ALL the parameters are optional, btw)
 {
-	id: "steps", // by default, this is actorID AND dataID
-	dataID: "steps", // ONLY if actorID=/=dataID. (e.g. two actors modify same data)
-	type: "number", // what Actor Template to inherit from, if any
+	id: "steps", // by default, this is opID AND dataID
+	dataID: "steps", // ONLY if opID=/=dataID. (e.g. two ops modify same data)
+	type: "number", // what Op Template to inherit from, if any
 	placeholder: 50 // if no data, what should be the placeholder?
 }
 
 *****************/
 
-Joy.Actor = function(options, parent, data){
+Joy.Op = function(options, parent, data){
 
 	var self = this;
 
 	// Meta
-	self._class_ = "Actor";
+	self._class_ = "Op";
 	self.options = options;
 	self.parent = parent;
 	self.top = self.parent ? self.parent.top : self; // if no parent, I'M top dog.
 
-	// Inherit from Actor Template, if any. THEN inherit from "options"
+	// Inherit from Op Template, if any. THEN inherit from "options"
 	self.type = options.type;
 	if(self.type){
-		var actorTemplate = Joy.getTemplateByType(self.type);
-		_configure(self, actorTemplate);
+		var opTemplate = Joy.getTemplateByType(self.type);
+		_configure(self, opTemplate);
 	}
 	_configure(self, self.options);
 
-	// Adding child actors
+	// Adding child ops
 	self.children = [];
 	self.addChild = function(child, data){
 
-		// If child's not an Actor, it's options to create a new Actor.
-		if(child._class_!="Actor") child = new Joy.Actor(child, self, data);
+		// If child's not an Op, it's options to create a new Op.
+		if(child._class_!="Op") child = new Joy.Op(child, self, data);
 		self.children.push(child);
 
 		// If it has an ID, reference child with ID
@@ -139,7 +139,7 @@ Joy.Actor = function(options, parent, data){
 
 	// Update
 	self.update = function(){
-		if(self.onupdate) self.onupdate(self); // TODO: make consistent with .act()
+		if(self.onupdate) self.onupdate(self); // TODO: make consistent with .execute()
 		if(self.parent) self.parent.update();
 	};
 
@@ -194,7 +194,7 @@ Joy.Actor = function(options, parent, data){
 		var dataID = self.dataID;
 		if(parent && dataID){
 			// if nothing, put placeholder in parent
-			if(!parent.data[dataID]) parent.data[dataID] = _clone(self.placeholder); 
+			if(!parent.data[dataID]) parent.data[dataID] = _clone(self.placeholder);
 			self.data = parent.data[dataID]; // i'm parent's sub-data!
 		}else{
 			// ...otherwise, I'm standalone data.
@@ -225,7 +225,7 @@ Joy.Actor = function(options, parent, data){
 
 	// WATCH DATA
 	var _myEditLock = false;
-	var _onDataChange = function(attr, op, newValue, oldValue){	
+	var _onDataChange = function(attr, op, newValue, oldValue){
 		if(_myEditLock) return; // prevent double update
 		if(self.onDataChange) self.onDataChange();
 	};
@@ -250,15 +250,15 @@ Joy.Actor = function(options, parent, data){
 
 	// "Preview Data"
 	self.previewData = null;
-	
+
 
 	/////////////////////////////////
 	// ACTOR <-> PLAYER: "TARGETS" //
 	/////////////////////////////////
 
-	// Actors can ACT ON targets...
-	self.onact = self.onact || function(){};
-	self.act = function(target, altData){
+	// Ops can ACT ON targets...
+	self.onexecute = self.onexecute || function(){};
+	self.execute = async function(target, altData){
 
 		// Real or Preview data?
 		var data;
@@ -271,17 +271,21 @@ Joy.Actor = function(options, parent, data){
 		}
 
 		// Try to pre-evaluate all data beforehand!
-		self.children.forEach(function(childActor){
-			var dataID = childActor.dataID;
+		self.children.forEach(function(childOp){
+			var dataID = childOp.dataID;
 			if(dataID){
-				var value = childActor.get(target);
+				var value = childOp.get(target);
 				data[dataID] = value;
 			}
 		});
-
-		// On Act!
-		return self.onact({
-			actor: self,
+		console.log({
+			op: self,
+			target: target,
+			data: data
+		})
+		// On Execute!
+		return await self.onexecute({
+			op: self,
 			target: target,
 			data: data
 		});
@@ -298,7 +302,7 @@ Joy.Actor = function(options, parent, data){
 
 		// On Get!
 		return self.onget({
-			actor: self,
+			op: self,
 			target: target,
 			data: data
 		});
@@ -319,24 +323,34 @@ Joy.Actor = function(options, parent, data){
 
 /*****************
 
-ACTOR TEMPLATES that future Actors can be made from! Looks like this:
+ACTOR TEMPLATES that future Ops can be made from! Looks like this:
 
 Joy.add({
-	name: "Turn turtle", // what the Actions Widget calls it
-	type: "turtle/turn", // what it's called in Actor & Data
-	tags: ["turtle", "action"], // meta tags
-	init: "Turn {id:'angle', type:'number', placeholder:10} degrees", // for init'ing actor & widget
-	onact: function(my){
+	name: "Turn turtle", // what the Ops Widget calls it
+	type: "turtle/turn", // what it's called in Op & Data
+	tags: ["turtle", "op"], // meta tags
+	init: "Turn {id:'angle', type:'number', placeholder:10} degrees", // for init'ing op & widget
+	onexecute: function(my){
 		my.target.turn(my.data.angle);
 	}
 });
 
 *****************/
 
-// Add Template 
+// Add Template
 Joy.templates = [];
 Joy.add = function(template){
-	Joy.templates.push(template);
+	var duplicated = Joy.templates.filter(function(t){
+		return t.type == template.type;
+	});
+	if(duplicated.length<=0){
+		Joy.templates.push(template);
+	}
+	else{
+		console.log('replacing template ', template.name, template.type)
+		_removeFromArray(Joy.templates, duplicated[0]);
+		Joy.templates.push(template);
+	}
 };
 
 // Get Template
@@ -344,12 +358,12 @@ Joy.getTemplateByType = function(type){
 	var template = Joy.templates.find(function(template){
 		return template.type==type;
 	});
-	if(!template) throw Error("No actor template of type '"+type+"'!");
+	if(!template) throw Error("No op template of type '"+type+"'!");
 	return template;
 };
 Joy.getTemplatesByTag = function(tag){
 	return Joy.templates.filter(function(template){
-		return template.tags.indexOf(tag)>=0;
+		return template.tags && template.tags.indexOf(tag)>=0;
 	});
 };
 
@@ -376,7 +390,7 @@ Joy.modify = function(){
 	var modifications = callback(_old);
 	_configure(newTemplate, modifications);
 
-	// Then, either RENAME or REMOVE old actor template!
+	// Then, either RENAME or REMOVE old op template!
 	if(rename){
 		_old.type = rename;
 	}else{
@@ -391,15 +405,15 @@ Joy.modify = function(){
 // Converts a string into an ENTIRE ACTOR
 Joy.initializeWithString = function(self, markup){
 
-	var actorOptions = [];
+	var opOptions = [];
 	var html = markup;
 
-	// Split the markup into Actor Options & Widget HTML
+	// Split the markup into Op Options & Widget HTML
 	var startIndex = -1;
 	var endIndex = -1;
 	var stack = 0;
 	// Go through each character. When you find a top-level "{...}" JSON string,
-	// 1) parse it into an Actor Option
+	// 1) parse it into an Op Option
 	// 2) replace it in the markup with a <span> saying where its widget should go
 	for(var i=0; i<html.length; i++){
 		var character = html[i];
@@ -417,7 +431,7 @@ Joy.initializeWithString = function(self, markup){
 			json = json.replace(/\'/g,'"'); // cleanup: replace ' with "
 			json = JSON.parse(json);
 			json.dataID = json.dataID || json.id; // cleanup: dataID=id by default
-			actorOptions.push(json); // remember option!
+			opOptions.push(json); // remember option!
 			html = html.substr(0, startIndex)
 				   + "<span id='widget_"+json.id+"'></span>"
 				   + html.substr(endIndex); // replace markup
@@ -431,9 +445,9 @@ Joy.initializeWithString = function(self, markup){
 		}
 	}
 
-	// Create all child Actors
-	actorOptions.forEach(function(actorOption){
-		self.addChild(actorOption);
+	// Create all child Ops
+	opOptions.forEach(function(opOption){
+		self.addChild(opOption);
 	});
 
 	// Create Widget: html, and replace
@@ -467,7 +481,7 @@ Joy.initializeWithString = function(self, markup){
 JOY MODULES
 
 So that a player can slowly step up the staircase of complexity
-(also maybe import Actors in the future?)
+(also maybe import Ops in the future?)
 
 *****************/
 
@@ -493,10 +507,10 @@ Each reference should have: Unique ID, Tag, Data, Watchers
 
 ******************************/
 
-Joy.initReferences = function(actor){
-	
+Joy.initReferences = function(op){
+
 	// Create if not already
-	var topdata = actor.top.data;
+	var topdata = op.top.data;
 	if(!topdata._references) topdata._references={};
 
 	// Zero out all connected, it's a brand new world.
@@ -507,15 +521,15 @@ Joy.initReferences = function(actor){
 
 };
 
-Joy.createReference = function(actor, tags, data){
+Joy.createReference = function(op, tags, data){
 
 	// The reference
-	var topdata = actor.top.data;
+	var topdata = op.top.data;
 	var reference = {
 		id: _generateUID(topdata._references),
 		tags: _forceToArray(tags),
 		data: data,
-		connected: 0 // tracks how many actors this thing actually depends on
+		connected: 0 // tracks how many ops this thing actually depends on
 	};
 	topdata._references[reference.id] = reference;
 
@@ -524,13 +538,13 @@ Joy.createReference = function(actor, tags, data){
 
 };
 
-Joy.getReferenceById = function(actor, refID){
-	var topdata = actor.top.data;
+Joy.getReferenceById = function(op, refID){
+	var topdata = op.top.data;
 	return topdata._references[refID];
 };
 
-Joy.getReferencesByTag = function(actor, tag){
-	var topdata = actor.top.data;
+Joy.getReferencesByTag = function(op, tag){
+	var topdata = op.top.data;
 	var refs = [];
 	for(var id in topdata._references){
 		var ref = topdata._references[id];
@@ -539,19 +553,19 @@ Joy.getReferencesByTag = function(actor, tag){
 	return refs;
 };
 
-Joy.connectReference = function(actor, refID){
-	var ref = Joy.getReferenceById(actor, refID);
+Joy.connectReference = function(op, refID){
+	var ref = Joy.getReferenceById(op, refID);
 	ref.connected++;
 };
 
-Joy.disconnectReference = function(actor, refID){
-	var ref = Joy.getReferenceById(actor, refID);
+Joy.disconnectReference = function(op, refID){
+	var ref = Joy.getReferenceById(op, refID);
 	ref.connected--;
-	if(ref.connected==0) Joy.deleteReference(actor, refID);
+	if(ref.connected==0) Joy.deleteReference(op, refID);
 };
 
-Joy.deleteReference = function(actor, refID){
-	var topdata = actor.top.data;
+Joy.deleteReference = function(op, refID){
+	var topdata = op.top.data;
 	var reference = topdata._references[refID];
 	delete topdata._references[refID];
 };
@@ -668,7 +682,7 @@ var _numberToAlphabet = function(a){
 
 	// First figure out how many digits there are.
 	var c = 0;
-	var x = 1;      
+	var x = 1;
 	while (a >= x) {
 		c++;
 		a -= x;
@@ -720,7 +734,8 @@ var _selectAll = function(input, collapseToEnd){
     if(collapseToEnd) range.collapse(false); // total hack
     var selection = window.getSelection();
     selection.removeAllRanges();
-    selection.addRange(range);
+		selection.addRange(range);
+
 };
 var _unselectAll = function(){
 	var selection = window.getSelection();
@@ -796,7 +811,7 @@ var _getParameterByName = function(name, url) {
 
 /* accepts parameters
  * h  Object = {h:x, s:y, v:z}
- * OR 
+ * OR
  * h, s, v
 */
 function _HSVtoRGB(h, s, v) {
@@ -857,7 +872,7 @@ function _forceToRGB(color){
  *
  * WORKS WITH:
  * IE8*, IE 9+, FF 4+, SF 5+, WebKit, CH 7+, OP 12+, BESEN, Rhino 1.7+
- * For IE8 (and other legacy browsers) WatchJS will use dirty checking  
+ * For IE8 (and other legacy browsers) WatchJS will use dirty checking
  *
  * FORK:
  * https://github.com/melanke/Watch.JS
@@ -880,7 +895,7 @@ ui.init = function(master){
 	master.container.addEventListener('wheel', function(event){
 		var delta = event.deltaY;
 		master.container.scrollTop += delta;
-		event.preventDefault();
+		// event.preventDefault();
 		return false;
 	});
 
@@ -926,7 +941,7 @@ Button's config:
 }
 ********************/
 ui.Button = function(config){
-	
+
 	var self = this;
 
 	// DOM. Pretty simple.
@@ -966,7 +981,7 @@ ChooserButton's config:
 }
 ********************/
 ui.ChooserButton = function(config){
-	
+
 	var self = this;
 
 	// Properties
@@ -1000,14 +1015,14 @@ ui.ChooserButton = function(config){
 				},
 				position: config.position
 			});
-			
+
 		},
 		styles: config.styles
 	});
 
 	// Helper method
 	var _updateLabel = function(){
-		
+
 		if(config.staticLabel!==undefined) return; // if static, no.
 
 		// Otherwise, find the corresponding label to my current value & set to that.
@@ -1075,7 +1090,7 @@ ui.Scrubber = function(config){
 			// What's the step?
 			var step = Math.pow(0.1,self.sigfigs);
 			step = parseFloat(step.toPrecision(1)); // floating point crap
-			
+
 			// Change number
 			var velocity = event.clientX - lastDragX;
 			lastDragX = event.clientX;
@@ -1086,7 +1101,7 @@ ui.Scrubber = function(config){
 			var dx = Math.floor(delta/2);
 			var newValue = startDragValue + dx*step;
 			newValue = _boundNumber(newValue);
-			
+
 			// Only update if ACTUALLY new.
 			if(self.value != newValue){
 				self.value = newValue;
@@ -1148,7 +1163,7 @@ ui.Scrubber = function(config){
 		if(wasDragging) return; // can't click if I was just dragging!
 
 		_manuallyEditing = true;
-		
+
 		// Make it editable, and select it!
 		dom.contentEditable = true;
 		dom.spellcheck = false;
@@ -1215,14 +1230,14 @@ String's config:
 }
 ********************/
 ui.String = function(config){
-	
+
 	var self = this;
 
 	// DOM
 	var dom = document.createElement("div");
 	dom.className = "joy-string";
 	self.dom = dom;
-	
+
 	// The Actual Part that's Content Editable
 	var input = document.createElement("span");
 	input.contentEditable = true;
@@ -1299,7 +1314,7 @@ TextLine's config:
 // TODO: a full WSIYWIG editor?
 // https://hackernoon.com/easily-create-an-html-editor-with-designmode-and-contenteditable-7ed1c465d39b
 ui.TextBox = function(config){
-	
+
 	var self = this;
 
 	// DOM
@@ -1332,7 +1347,7 @@ ui.TextBox = function(config){
 	if(config.width){
 		input.style.width = (typeof config.width==="number") ? config.width+"px" : config.width;
 	}
-	
+
 	// Get & Set Value
 	self.getValue = function(){ return input.value; };
 	self.setValue = function(value){ input.value = value; };
@@ -1399,52 +1414,60 @@ modal.init = function(master){
 
 	// NO SCROLL
 	modal.dom.addEventListener('wheel', function(event){
-		event.preventDefault();
-		return false;
+		if(modal.box.style.overflow != "auto"){
+			event.preventDefault();
+			return false;
+		}
+		else{
+			return true;
+		}
 	});
 
 };
 modal.show = function(ui){
 
-	modal.dom.style.display = "block"; // hi
+		modal.dom.style.display = "block"; // hi
 
-	// Remember & add UI
-	modal.currentUI = ui;
-	modal.box.appendChild(ui.dom);
-	
-	// Position the Box
-	var position = ui.config.position || "below";
-	var boxBounds = modal.box.getBoundingClientRect();
-	var sourceBounds = ui.config.source.getBoundingClientRect();
-	var x,y, margin=20;
+		// Remember & add UI
+		modal.currentUI = ui;
+		modal.box.appendChild(ui.dom);
 
-	// HACK: IF BELOW & NO SPACE, do LEFT
-	if(position=="below"){
-		var y = sourceBounds.top + sourceBounds.height + margin; // y: bottom
-		if(y+boxBounds.height > document.body.clientHeight){ // below page!
-			position = "left";
-		}
-	}
-
-	modal.box.setAttribute("position", position);
-	switch(position){ // TODO: smarter positioning
-		case "below":
-			var x = sourceBounds.left + sourceBounds.width/2; // x: middle
+		// Position the Box
+		var position = ui.config.position || "below";
+		var boxBounds = modal.box.getBoundingClientRect();
+		var sourceBounds = ui.config.source.getBoundingClientRect();
+		var bgBounds = modal.bg.getBoundingClientRect();
+		var x,y, margin=20;
+		var overflow = false;
+		// HACK: IF BELOW & NO SPACE, do LEFT
+		if(position=="below"){
 			var y = sourceBounds.top + sourceBounds.height + margin; // y: bottom
-			x -= boxBounds.width/2;
-			break;
-		case "left":
-			var x = sourceBounds.left - margin; // x: left
-			var y = sourceBounds.top + sourceBounds.height/2; // y: middle
-			x -= boxBounds.width;
-			y -= boxBounds.height/2;
-			break;
-	}
-	modal.box.style.left = x+"px";
-	modal.box.style.top = y+"px";
+			if(y+boxBounds.height > document.body.clientHeight){ // below page!
+				position = "left";
+			}
+		}
 
-	// On Open
-	if(modal.currentUI.config.onopen) modal.currentUI.config.onopen();
+		modal.box.setAttribute("position", position);
+		switch(position){ // TODO: smarter positioning
+			case "below":
+				var x = sourceBounds.left + sourceBounds.width/2; // x: middle
+				var y = sourceBounds.top + sourceBounds.height + margin; // y: bottom
+				x -= boxBounds.width/2;
+				break;
+			case "left":
+				var x = sourceBounds.left - margin; // x: left
+				var y = sourceBounds.top + sourceBounds.height/2; // y: middle
+				x -= boxBounds.width;
+				y -= boxBounds.height/2;
+				break;
+		}
+		if(x<0) x=1;
+		if(y+boxBounds.height>bgBounds.height) y= bgBounds.height-boxBounds.height-1;
+		modal.box.style.left = x + "px";
+		modal.box.style.top = y + "px";
+
+		// On Open
+		if(modal.currentUI.config.onopen) modal.currentUI.config.onopen();
 
 };
 modal.hide = function(){
@@ -1463,7 +1486,7 @@ Chooser's config:
 	source: [who this modal dialog should be "coming from"]
 	value: [currently selected value, if any]
 	options: [label-value pairs],
-	onchange: function(value){}, // callback 
+	onchange: function(value){}, // callback
 	position: "below" // default is "below"
 };
 ********************/
@@ -1561,7 +1584,7 @@ Color's config:
 {
 	source: [who this modal dialog should be "coming from"]
 	value: [currently selected value, if any]
-	onchange: function(value){}, // callback 
+	onchange: function(value){}, // callback
 	onclose: function(){}
 };
 ********************/
@@ -1597,8 +1620,8 @@ modal.Color = function(config){
 	var FULL_WIDTH = MARGIN_1+WHEEL_SIZE+MARGIN_2+SPECTRUM_WIDTH+MARGIN_3;
 	var FULL_HEIGHT = MARGIN_1+WHEEL_SIZE+MARGIN_3;
 
-	self.dom.style.width = FULL_WIDTH;
-	self.dom.style.height = FULL_HEIGHT;
+	self.dom.style.width = FULL_WIDTH + "px";
+	self.dom.style.height = FULL_HEIGHT + "px";
 
 	/////////////////////////////
 	// 1) The Color Wheel ///////
@@ -1609,12 +1632,12 @@ modal.Color = function(config){
 	var wheelContext = wheelCanvas.getContext("2d");
 	wheelCanvas.width = WHEEL_SIZE*2;
 	wheelCanvas.height = WHEEL_SIZE*2;
-	wheelCanvas.style.width = wheelCanvas.width/2;
-	wheelCanvas.style.height = wheelCanvas.height/2;
+	wheelCanvas.style.width = wheelCanvas.width/2 + "px";
+	wheelCanvas.style.height = wheelCanvas.height/2 + "px";
 	dom.appendChild(wheelCanvas);
 
-	wheelCanvas.style.top = MARGIN_1;
-	wheelCanvas.style.left = MARGIN_1;
+	wheelCanvas.style.top = MARGIN_1 + "px";
+	wheelCanvas.style.left = MARGIN_1 + "px";
 
 	var _updateWheel = function(){
 
@@ -1684,12 +1707,12 @@ modal.Color = function(config){
 	var spectrumContext = spectrumCanvas.getContext("2d");
 	spectrumCanvas.width = SPECTRUM_WIDTH*2;
 	spectrumCanvas.height = WHEEL_SIZE*2;
-	spectrumCanvas.style.width = spectrumCanvas.width/2;
-	spectrumCanvas.style.height = spectrumCanvas.height/2;
+	spectrumCanvas.style.width = spectrumCanvas.width/2 + "px";
+	spectrumCanvas.style.height = spectrumCanvas.height/2 + "px";
 	dom.appendChild(spectrumCanvas);
 
-	spectrumCanvas.style.top = MARGIN_1;
-	spectrumCanvas.style.right = MARGIN_3;
+	spectrumCanvas.style.top = MARGIN_1 + "px";
+	spectrumCanvas.style.right = MARGIN_3 + "px";
 
 	var _updateSpectrum = function(){
 
@@ -1734,8 +1757,8 @@ modal.Color = function(config){
 	var pickerContext = pickerCanvas.getContext("2d");
 	pickerCanvas.width = FULL_WIDTH*2;
 	pickerCanvas.height = FULL_HEIGHT*2;
-	pickerCanvas.style.width = pickerCanvas.width/2;
-	pickerCanvas.style.height = pickerCanvas.height/2;
+	pickerCanvas.style.width = pickerCanvas.width/2 + "px";
+	pickerCanvas.style.height = pickerCanvas.height/2 + "px";
 	dom.appendChild(pickerCanvas);
 
 	var _updatePickers = function(){
@@ -1859,7 +1882,7 @@ modal.Color = function(config){
 
 	// Kill
 	self.kill = function(){
-		
+
 		// KILL LISTENERS
 		dom.removeEventListener("mousedown", _onmousedown);
 		window.removeEventListener("mousemove", _onmousemove);
@@ -1914,13 +1937,13 @@ Joy.add({
 		self.dom = scrubber.dom;
 
 		// PREVIEW ON HOVER. WIGGLE IT JUST ONCE.
-		
+
 		var _ticker = null;
 		var _fps = 30;
 		self.dom.onmouseenter = function(){
 
 			if(!self.top.canPreview("numbers")) return;
-			
+
 			// Create Preview Data
 			self.previewData = _clone(self.data);
 
@@ -1949,7 +1972,7 @@ Joy.add({
 			self.update();
 		};
 		self.dom.onmouseleave = _stopPreview;
-		
+
 
 	},
 	onget: function(my){
@@ -2015,7 +2038,7 @@ Joy.add({
 		self.dom.onmouseenter = function(){
 
 			if(!self.top.canPreview("numbers")) return; // yeah let's pretend it's a number
-			
+
 			// Create Preview Data
 			_initialV = self.data.value[2];
 			self.previewData = _clone(self.data);
@@ -2172,12 +2195,12 @@ Joy.add({
 		var dom = document.createElement("div");
 		dom.className = "joy-save";
 		self.dom = dom;
-		
+
 		// Save Button
 		self.saveButton = new Joy.ui.Button({
-			label: "save:",
+			label: "save",
 			onclick: function(){
-				
+
 				var url = Joy.saveToURL(self.top.data);
 				self.url.setValue(url);
 				self.url.select();
@@ -2199,31 +2222,31 @@ Joy.add({
 		// Details: chars & tinyurl link
 		self.info = document.createElement("div");
 		self.info.id = "joy-save-info";
-		dom.appendChild(self.info);		
+		dom.appendChild(self.info);
 
 	}
 });
 ////////////////////////////////////////////////////////
-// THE BIG ACTOR: A "PROGRAMMABLE" LIST OF ACTIONS <3 //
+// THE BIG ACTOR: A "PROGRAMMABLE" LIST OF OPS <3 //
 ////////////////////////////////////////////////////////
 
 /****************
 
-A nice list of actions.
+A nice list of ops.
 
 WidgetConfig:
-{type:'actions', name:'actions', resetVariables:false}
+{type:'ops', name:'ops', resetVariables:false}
 
 ****************/
 Joy.add({
-	type: "actions",
+	type: "ops",
 	tags: ["ui"],
 	init: function(self){
 
 		if(self.resetVariables!==undefined) self.data.resetVariables=self.resetVariables;
 
 		// TODO: ACTUALLY REFACTOR
-		// TODO: Separate out Actor code from Widget code
+		// TODO: Separate out Op code from Widget code
 		// so that this can run EVEN WITHOUT WIDGETS.
 		// Using messages, probably.
 
@@ -2231,11 +2254,11 @@ Joy.add({
 	initWidget: function(self){
 
 		var data = self.data;
-		var actions = data.actions;
+		var ops = data.ops;
 
 		// DOM
 		var dom = document.createElement("div");
-		dom.className = "joy-actions";
+		dom.className = "joy-ops";
 		self.dom = dom;
 
 		// List
@@ -2257,28 +2280,28 @@ Joy.add({
 		//////////////////////////////////////////
 
 		var bulletOptions = [
-			{label:"Add action above", value:"action_above"},
-			{label:"Add action below", value:"action_below"},
+			{label:"Add op above", value:"op_above"},
+			{label:"Add op below", value:"op_below"},
 			{label:"Delete", value:"delete"}
 		];
 		var _onBulletChoice = function(entry, choice){
 
 			// ACTION ABOVE or BELOW
-			var newActionWhere = 0;
-			if(choice=="action_above") newActionWhere=-1; // above
-			if(choice=="action_below") newActionWhere=1; // below
-			if(newActionWhere!=0){ // not NOT new action
-				
+			var newOpWhere = 0;
+			if(choice=="op_above") newOpWhere=-1; // above
+			if(choice=="op_below") newOpWhere=1; // below
+			if(newOpWhere!=0){ // not NOT new op
+
 				var newEntryIndex = self.entries.indexOf(entry);
-				if(newActionWhere>0) newEntryIndex+=1;
+				if(newOpWhere>0) newEntryIndex+=1;
 
 				// Chooser Modal!
 				Joy.modal.Chooser({
-					position: "left",
+					position: "below",
 					source: entry.bullet.dom,
-					options: actionOptions,
+					options: opOptions,
 					onchange: function(value){
-						_addAction(value, newEntryIndex);
+						_addOp(value, newEntryIndex);
 						self.update(); // You oughta know!
 						_updateBullets(); // update the UI, re-number it.
 					}
@@ -2289,8 +2312,8 @@ Joy.add({
 			// DELETE
 			if(choice=="delete"){
 				_removeFromArray(self.entries, entry); // Delete entry from Entries[]
-				_removeFromArray(actions, entry.actionData); // Delete action from Data's Actions[]
-				self.removeChild(entry.actor); // Delete actor from Children[]
+				_removeFromArray(ops, entry.opData); // Delete op from Data's Ops[]
+				self.removeChild(entry.op); // Delete op from Children[]
 				list.removeChild(entry.dom); // Delete entry from DOM
 				self.update(); // You oughta know!
 				_updateBullets(); // update the UI, re-number it.
@@ -2298,9 +2321,9 @@ Joy.add({
 
 		};
 		var _createBullet = function(entry){
-		
+
 			var bullet = new Joy.ui.ChooserButton({
-				position: "left",
+				position: "below",
 				staticLabel: _getBulletLabel(entry),
 				options: bulletOptions,
 				onchange: function(choice){
@@ -2320,11 +2343,11 @@ Joy.add({
 			// What index am I?
 			var index = self.entries.indexOf(entry)+1;
 
-			// How many levels deep in "actions" am I?
+			// How many levels deep in "ops" am I?
 			var levelsDeep = 0;
 			var parent = self.parent;
 			while(parent){
-				if(parent.type=="actions") levelsDeep++;
+				if(parent.type=="ops") levelsDeep++;
 				parent = parent.parent;
 			}
 
@@ -2355,7 +2378,7 @@ Joy.add({
 		////////////////////////////////////////////////////////////////////
 
 		self.entries = [];
-		var _addEntry = function(actionData, atIndex){
+		var _addEntry = function(opData, atIndex){
 
 			// New entry
 			var entry = {};
@@ -2371,54 +2394,54 @@ Joy.add({
 			entryDOM.appendChild(bulletContainer);
 			bulletContainer.appendChild(bullet.dom);
 
-			// New Actor!
-			var newActor = self.addChild({type:actionData.type}, actionData);
+			// New Op!
+			var newOp = self.addChild({type:opData.type}, opData);
 
 			// The Widget
-			var newWidget = newActor.createWidget();
+			var newWidget = newOp.createWidget();
 			newWidget.id = "joy-widget";
 			entryDOM.appendChild(newWidget);
 
 			// (Remember all this)
 			entry.dom = entryDOM;
 			entry.bullet = bullet;
-			entry.actor = newActor;
+			entry.op = newOp;
 			entry.widget = newWidget;
-			entry.actionData = actionData;
+			entry.opData = opData;
 
 			// PREVIEW ON HOVER
-			// Also tell the action "_PREVIEW": how far in the action to go?
+			// Also tell the op "_PREVIEW": how far in the op to go?
 			var _calculatePreviewParam = function(event){
 				var param = event.offsetY / bullet.dom.getBoundingClientRect().height;
 				if(param<0) param=0;
 				if(param>1) param=1;
-				_previewAction._PREVIEW = param;
+				_previewOp._PREVIEW = param;
 				self.update();
 			};
-			var _previewAction;
+			var _previewOp;
 			var _previewStyle;
 			bulletContainer.onmouseenter = function(event){
 
-				if(!self.top.canPreview("actions")) return;
+				if(!self.top.canPreview("ops")) return;
 
 				self.top.activePreview = self;
-				
+
 				// Create Preview Data
 				self.previewData = _clone(self.data);
-				var actionIndex = self.entries.indexOf(entry);
-				_previewAction = self.previewData.actions[actionIndex];
+				var opIndex = self.entries.indexOf(entry);
+				_previewOp = self.previewData.ops[opIndex];
 
-				// STOP after that action!
-				self.previewData.actions.splice(actionIndex+1, 0, {STOP:true});
+				// STOP after that op!
+				self.previewData.ops.splice(opIndex+1, 0, {STOP:true});
 
-				// How far to go along action?
+				// How far to go along op?
 				_calculatePreviewParam(event);
 
 				// Add in a style
 				_previewStyle = document.createElement("style");
 				document.head.appendChild(_previewStyle);
-				_previewStyle.sheet.insertRule('.joy-actions.joy-previewing > #joy-list > div:nth-child(n+'+(actionIndex+2)+') { opacity:0.1; }');
-				_previewStyle.sheet.insertRule('.joy-actions.joy-previewing > div.joy-bullet { opacity:0.1; }');
+				_previewStyle.sheet.insertRule('.joy-ops.joy-previewing > #joy-list > div:nth-child(n+'+(opIndex+2)+') { opacity:0.1; }');
+				_previewStyle.sheet.insertRule('.joy-ops.joy-previewing > div.joy-bullet { opacity:0.1; }');
 				dom.classList.add("joy-previewing");
 
 			};
@@ -2438,67 +2461,67 @@ Joy.add({
 			return entry;
 
 		};
-		// add all INITIAL actions as widgets
-		for(var i=0;i<actions.length;i++) _addEntry(actions[i]);
+		// add all INITIAL ops as widgets
+		for(var i=0;i<ops.length;i++) _addEntry(ops[i]);
 
 		///////////////////////////////////////
-		// Add Action /////////////////////////
+		// Add Op /////////////////////////
 		///////////////////////////////////////
 
-		// Manually add New Action To Actions + Widgets + DOM
-		var _addAction = function(actorType, atIndex){
+		// Manually add New Op To Ops + Widgets + DOM
+		var _addOp = function(opType, atIndex){
 
 			// Create that new entry & everything
-			var newAction = {type:actorType};
+			var newOp = {type:opType};
 			if(atIndex===undefined){
-				actions.push(newAction);
+				ops.push(newOp);
 			}else{
-				actions.splice(atIndex, 0, newAction);
+				ops.splice(atIndex, 0, newOp);
 			}
-			var entry = _addEntry(newAction, atIndex);
+			var entry = _addEntry(newOp, atIndex);
 
 			// Focus on that entry's widget!
 			// entry.widget.focus();
 
 		};
 
-		// Actions you can add:
-		// TODO: INCLUDE ALIASED ACTIONS
-		var actionOptions = [];
-		if(self.onlyActions){
-			for(var i=0;i<self.onlyActions.length;i++){
-				var actionType = self.onlyActions[i];
-				var actorTemplate = Joy.getTemplateByType(actionType);
-				var notActionTag = actorTemplate.tags.filter(function(tag){
-					return tag!="action"; // first tag that's NOT "action"
+		// Ops you can add:
+		// TODO: INCLUDE ALIASED OPS
+		var opOptions = [];
+		if(self.onlyOps){
+			for(var i=0;i<self.onlyOps.length;i++){
+				var opType = self.onlyOps[i];
+				var opTemplate = Joy.getTemplateByType(opType);
+				var notOpTag = opTemplate.tags.filter(function(tag){
+					return tag!="op"; // first tag that's NOT "op"
 				})[0];
-				actionOptions.push({
-					label: actorTemplate.name,
-					value: actionType,
-					category: notActionTag
+				opOptions.push({
+					label: opTemplate.name,
+					value: opType,
+					category: notOpTag
 				});
 			}
 		}else{
-			var actionActors = Joy.getTemplatesByTag("action");
-			for(var i=0;i<actionActors.length;i++){
-				var actionActor = actionActors[i];
-				var notActionTag = actionActor.tags.filter(function(tag){
-					return tag!="action";
+			var opOps = Joy.getTemplatesByTag("op");
+			for(var i=0;i<opOps.length;i++){
+				var opOp = opOps[i];
+				var notOpTag = opOp.tags.filter(function(tag){
+					return tag!="op";
 				})[0];
-				actionOptions.push({
-					label: actionActor.name,
-					value: actionActor.type,
-					category: notActionTag
+				opOptions.push({
+					label: opOp.name,
+					value: opOp.type,
+					category: notOpTag
 				});
 			}
 		}
 
-		// "+" Button: When clicked, prompt what actions to add!
+		// "+" Button: When clicked, prompt what ops to add!
 		var addButton = new Joy.ui.ChooserButton({
 			staticLabel: "+",
-			options: actionOptions,
+			options: opOptions,
 			onchange: function(value){
-				_addAction(value);
+				_addOp(value);
 				self.update(); // You oughta know!
 			},
 			styles: ["joy-bullet"]
@@ -2506,31 +2529,41 @@ Joy.add({
 		dom.appendChild(addButton.dom);
 
 	},
-	onact: function(my){
+	onexecute: async function(my){
 
 		// Create _vars, if not already there
-		if(!my.target._variables) my.target._variables={}; 
+		if(!my.target._variables) my.target._variables={};
 
 		// Reset all of target's variables?
 		if(my.data.resetVariables) my.target._variables = {};
 
-		// Do those actions, baby!!!
-		for(var i=0; i<my.data.actions.length; i++){
+		// Do those ops, baby!!!
+		for(var i=0; i<my.data.ops.length; i++){
 
 			// Stop?
-			var actionData = my.data.actions[i];
-			if(actionData.STOP) return "STOP";
+			var opData = my.data.ops[i];
+			if(opData.STOP) return "STOP";
 
-			// Run 
-			var actor = my.actor.entries[i].actor; // TODO: THIS IS A HACK AND SHOULD NOT RELY ON THAT
-			var actorMessage = actor.act(my.target, actionData); // use ol' actor, but GIVEN data.
-			if(actorMessage=="STOP") return actorMessage;
-
+			// Run
+			var op = my.op.entries[i].op; // TODO: THIS IS A HACK AND SHOULD NOT RELY ON THAT
+			var result = await op.execute(my.target, opData); // use ol' op, but GIVEN data.
+			if(result && result.target){
+				my.target = result.target;
+			}
+			else if(result.error){
+				console.error('ops stopped with error: ', result);
+				return result;
+			}
+			else if(result.stop){
+				console.log('ops interrupted at step ', i, result);
+				return result;
+			}
+			else if(result=="STOP") return result;
 		}
-
+		return my;
 	},
 	placeholder: {
-		actions: [],
+		ops: [],
 		resetVariables: true
 	}
 });
@@ -2543,11 +2576,11 @@ Joy.module("instructions", function(){
 	Joy.add({
 		name: "Repeat the following...",
 		type: "instructions/repeat",
-		tags: ["instructions", "action"],
+		tags: ["instructions", "op"],
 		init: "Repeat the following {id:'count', type:'number', min:1, placeholder:3} times: "+
-			  "{id:'actions', type:'actions', resetVariables:false}",
-		onact: function(my){
-			
+			  "{id:'ops', type:'ops', resetVariables:false}",
+		onexecute: async function(my){
+
 			// Previewing? How much to preview?
 			var param = 1;
 			if(my.data._PREVIEW!==undefined) param=my.data._PREVIEW;
@@ -2555,21 +2588,32 @@ Joy.module("instructions", function(){
 			// Loop through it... (as far as preview shows, anyway)
 			var loops = Math.floor(my.data.count*param);
 			for(var i=0; i<loops; i++){
-				var message = my.actor.actions.act(my.target);
-				if(message=="STOP") return message; // STOP
+				var result = await my.op.ops.execute(my.target);
+				if(result && result.target){
+					my.target = result.target;
+				}
+				else if(result.error){
+					console.error('op stopped with error: ', result)
+					return result;
+				}
+				else if(result.stop){
+					console.log('op interrupted at step ', i, result)
+					return result;
+				}
+				else if(result=="STOP") return result; // STOP
 			}
-
+			return my;
 		}
 	});
 
 	/*Joy.add({
 		name: "If... then...",
 		type: "instructions/if",
-		tags: ["instructions", "action"],
+		tags: ["instructions", "op"],
 		init: "If AHHH, then: "+
-			  "{id:'actions', type:'actions', resetVariables:false}",
-		onact: function(my){
-			var message = my.actor.actions.act(my.target);
+			  "{id:'ops', type:'ops', resetVariables:false}",
+		onexecute: function(my){
+			var message = my.op.ops.execute(my.target);
 			if(message=="STOP") return message; // STOP
 		}
 	});*/
@@ -2577,7 +2621,7 @@ Joy.module("instructions", function(){
 	Joy.add({
 		name: "// Write a note",
 		type: "instructions/comment",
-		tags: ["instructions", "action"],
+		tags: ["instructions", "op"],
 		initWidget: function(self){
 
 			// DOM
@@ -2615,13 +2659,13 @@ Joy.add({
 			var highestCount=0;
 			varnames.forEach(function(varname){
 				var num;
-				if(varname=="thing") num=1; // at least 1
-				var match = varname.match(/thing\s(\d+)/);
+				if(varname=="variable") num=1; // at least 1
+				var match = varname.match(/variable\s(\d+)/);
 				if(match) num = parseInt(match[1]); // or more
 				if(highestCount<num) highestCount=num;
 			});
-			if(highestCount==0) return "thing";
-			else return "thing "+(highestCount+1);
+			if(highestCount==0) return "variable";
+			else return "variable "+(highestCount+1);
 		};
 
 		// Create Reference method
@@ -2654,10 +2698,10 @@ Joy.add({
 				// Otherwise, make a new one!
 				self._createNewReference();
 			}
-			
+
 		}
 
-		// Switch reference 
+		// Switch reference
 		self._switchReference = function(newRefID){
 			var refID = self.getData("refID");
 			Joy.disconnectReference(self, refID); // disconnect old ref
@@ -2669,24 +2713,24 @@ Joy.add({
 	initWidget: function(self){
 
 		self.dom = document.createElement("span");
-		
+
 		// The String edits my REFERENCE'S data.
 		var refID = self.getData("refID");
 		var refData = Joy.getReferenceById(self, refID).data;
-		var stringActor = self.addChild({
+		var stringOp = self.addChild({
 			type: "string",
 			prefix:"[", suffix:"]",
 			color: refData.color
 		}, refData);
-		var stringWidget = stringActor.createWidget();
+		var stringWidget = stringOp.createWidget();
 		self.dom.appendChild(stringWidget);
 
-		// This String Actor also updates its color
-		var _old_stringActor_onDataChange = stringActor.onDataChange;
-		stringActor.onDataChange = function(){
-			_old_stringActor_onDataChange();
-			var color = stringActor.getData("color");
-			stringActor.stringUI.setColor(color);
+		// This String Op also updates its color
+		var _old_stringOp_onDataChange = stringOp.onDataChange;
+		stringOp.onDataChange = function(){
+			_old_stringOp_onDataChange();
+			var color = stringOp.getData("color");
+			stringOp.stringUI.setColor(color);
 		};
 
 		// Chooser? Can choose to switch to other variables (or make new one)
@@ -2732,10 +2776,10 @@ Joy.add({
 						// Just change color, ha.
 						Joy.modal.Color({
 							source: self.dom,
-							value: stringActor.getData("color"),
+							value: stringOp.getData("color"),
 							onchange: function(newColor){
-								stringActor.setData("color", newColor);
-								stringActor.stringUI.setColor(newColor); // do this again coz edit lock
+								stringOp.setData("color", newColor);
+								stringOp.stringUI.setColor(newColor); // do this again coz edit lock
 							}
 						});
 
@@ -2754,7 +2798,7 @@ Joy.add({
 						// Make String Widget edit that instead
 						var refID = self.getData("refID");
 						var ref = Joy.getReferenceById(self, refID);
-						stringActor.switchData(ref.data);
+						stringOp.switchData(ref.data);
 
 					}
 
@@ -2767,15 +2811,15 @@ Joy.add({
 		if(!self.noChooser){
 			self.dom.onclick = _showChooser;
 		}
-		
+
 	},
 	onget: function(my){
 		var refID = my.data.refID;
-		var ref = Joy.getReferenceById(my.actor, refID);
+		var ref = Joy.getReferenceById(my.op, refID);
 		return ref.data.value; // returns the variable name
 	},
 	onkill: function(self){
-		
+
 		// Disconnect any references I may have
 		var refID = self.getData("refID");
 		Joy.disconnectReference(self, refID); // disconnect old ref
@@ -2792,7 +2836,7 @@ Joy.module("math", function(){
 	Alright. This is gonna be a big one.
 	It needs to be able to chain math elements,
 	and each element needs to be able to switch between
-	scrubbers, variables, and other number-getter actors.
+	scrubbers, variables, and other number-getter ops.
 
 	Data:
 	{
@@ -2824,19 +2868,19 @@ Joy.module("math", function(){
 				}
 
 				// MAKE A NEW CHAIN ACTOR *AND DATA(?)*
-				self._makeNewChainActor = function(chainItem, atIndex){
+				self._makeNewChainOp = function(chainItem, atIndex){
 
 					// Make it
-					var chainActor;
+					var chainOp;
 					var type = chainItem.type;
 					switch(type){
 
 						// Elements
 						case "number_raw":
-							chainActor = self.addChild({type:type}, chainItem);
+							chainOp = self.addChild({type:type}, chainItem);
 							break;
 						case "variableName":
-							chainActor = self.addChild({
+							chainOp = self.addChild({
 								type: type,
 								variableType: 'number',
 								noChooser: true
@@ -2845,11 +2889,11 @@ Joy.module("math", function(){
 
 						// Operand
 						case "choose":
-							chainActor = self.addChild({
-								type:type, 
+							chainOp = self.addChild({
+								type:type,
 								options:[
 									{ label:"+", value:"+" },
-									{ label:"-", value:"-" }, 
+									{ label:"-", value:"-" },
 									{ label:"&times;", value:"*" },
 									{ label:"&divide;", value:"/" }
 								],
@@ -2859,52 +2903,52 @@ Joy.module("math", function(){
 
 					}
 
-					// Add or splice to Chain Actors array! *AND THE DATA*
+					// Add or splice to Chain Ops array! *AND THE DATA*
 					var chain = self.getData("chain");
 					if(atIndex!==undefined){
-						self.chainActors.splice(atIndex, 0, chainActor);
+						self.chainOps.splice(atIndex, 0, chainOp);
 						chain.splice(atIndex, 0, chainItem);
 					}else{
-						self.chainActors.push(chainActor);
+						self.chainOps.push(chainOp);
 						chain.push(chainItem);
 					}
 
 					// Return
-					return chainActor;
+					return chainOp;
 
 				}
 
-				// Create an actor for each element in the chain
-				self.chainActors = []; // keep a chain parallel to children. this one's in ORDER.
+				// Create an op for each element in the chain
+				self.chainOps = []; // keep a chain parallel to children. this one's in ORDER.
 				var realChain = self.getData("chain");
 				var chain = _clone(realChain);
 				realChain.splice(0, realChain.length); // empty out realChain
 				for(var i=0; i<chain.length; i++){
-					self._makeNewChainActor(chain[i]);
+					self._makeNewChainOp(chain[i]);
 				}
 
 				// REPLACE A CHAIN ACTOR *AND DATA*
-				self._replaceChainActor = function(oldChainActor, newItem){
+				self._replaceChainOp = function(oldChainOp, newItem){
 
-					// Delete old actor, and add new actor where it was
-					var oldIndex = self._deleteChainActor(oldChainActor);
-					var newChainActor = self._makeNewChainActor(newItem, oldIndex);
+					// Delete old op, and add new op where it was
+					var oldIndex = self._deleteChainOp(oldChainOp);
+					var newChainOp = self._makeNewChainOp(newItem, oldIndex);
 
 					// update manually!
 					self.update();
 
 					// Return
-					return newChainActor;
+					return newChainOp;
 
 				};
 
 				// DELETE A CHAIN ACTOR *AND DATA*
-				self._deleteChainActor = function(chainActor){
+				self._deleteChainOp = function(chainOp){
 
-					// Delete actor
-					var oldIndex = self.chainActors.indexOf(chainActor);
-					_removeFromArray(self.chainActors, chainActor);
-					self.removeChild(chainActor);
+					// Delete op
+					var oldIndex = self.chainOps.indexOf(chainOp);
+					_removeFromArray(self.chainOps, chainOp);
+					self.removeChild(chainOp);
 
 					// and data!
 					var chain = self.getData("chain");
@@ -2929,12 +2973,12 @@ Joy.module("math", function(){
 				self.dom.className = "joy-number";
 
 				// Show Chooser!
-				var _showChooser = function(chainActor){
+				var _showChooser = function(chainOp){
 
 					var options = [];
 
 					// Show placeholder number (unless i'm a number_raw, or there isn't one)
-					if(chainActor.type!="number_raw"){
+					if(chainOp.type!="number_raw"){
 						var placeholderNumber = self.placeholder.value;
 						if(typeof placeholderNumber==="number"){
 							options.push({
@@ -2950,7 +2994,7 @@ Joy.module("math", function(){
 					// Show possible variables (except the current variable)
 					var refs = Joy.getReferencesByTag(self, "number");
 					var myRefID;
-					if(chainActor.type=="variableName") myRefID=chainActor.getData("refID");
+					if(chainOp.type=="variableName") myRefID=chainOp.getData("refID");
 					refs.forEach(function(ref){
 						if(ref.id==myRefID) return; // don't show SELF
 						var color = ref.data.color;
@@ -2968,12 +3012,12 @@ Joy.module("math", function(){
 					// Show all these dang options!
 					if(options.length>0){
 						Joy.modal.Chooser({
-							source: chainActor.dom,
+							source: chainOp.dom,
 							options: options,
 							onchange: function(newItem){
 								// REPLACE CHAIN ACTOR & ENTRY
-								var newChainActor = self._replaceChainActor(chainActor, newItem);
-								self._replaceChainEntry(chainActor, newChainActor);
+								var newChainOp = self._replaceChainOp(chainOp, newItem);
+								self._replaceChainEntry(chainOp, newChainOp);
 							}
 						});
 					}
@@ -2984,15 +3028,15 @@ Joy.module("math", function(){
 				self._chainEntries = [];
 
 				// MAKE CHAIN ENTRY
-				self._makeChainEntry = function(chainActor, atIndex){
+				self._makeChainEntry = function(chainOp, atIndex){
 
 					// Widget
 					var widget = document.createElement("span");
-					chainActor.createWidget();
-					widget.appendChild(chainActor.dom);
+					chainOp.createWidget();
+					widget.appendChild(chainOp.dom);
 
 					// Widget chooser, if NOT an operand
-					if(chainActor.type!="choose"){
+					if(chainOp.type!="choose"){
 						var entry;
 						var moreButton = new Joy.ui.Button({
 							onclick: function(){
@@ -3018,7 +3062,7 @@ Joy.module("math", function(){
 					}
 
 					// If it's NOT an operand, clicking it reveals options
-					if(chainActor.type!="choose"){
+					if(chainOp.type!="choose"){
 						(function(ca){
 							// HACK: click, NOT scrub. detect w/ time frame
 							var _mouseDownTime;
@@ -3031,13 +3075,13 @@ Joy.module("math", function(){
 									_showChooser(ca); // if clicked in less than a half second
 								}
 							});
-						})(chainActor);
+						})(chainOp);
 					}
 
 					// Entry
 					entry = {
 						widget: widget,
-						actor: chainActor
+						op: chainOp
 					};
 					if(atIndex!==undefined){
 						self._chainEntries.splice(atIndex, 0, entry);
@@ -3048,15 +3092,15 @@ Joy.module("math", function(){
 				};
 
 				// DELETE CHAIN ENTRY
-				self._deleteChainEntry = function(chainActor){
+				self._deleteChainEntry = function(chainOp){
 
 					// Get index (so can return later)
 					var entry = self._chainEntries.find(function(entry){
-						return entry.actor == chainActor;
+						return entry.op == chainOp;
 					});
 					var index = self._chainEntries.indexOf(entry);
 
-					// Delete widget & entry (actor's already been deleted)
+					// Delete widget & entry (op's already been deleted)
 					var widget = entry.widget;
 					self.dom.removeChild(widget);
 					_removeFromArray(self._chainEntries, entry);
@@ -3067,9 +3111,9 @@ Joy.module("math", function(){
 				};
 
 				// REPLACE CHAIN ENTRY
-				self._replaceChainEntry = function(oldChainActor, newChainActor){
-					var oldIndex = self._deleteChainEntry(oldChainActor);					
-					self._makeChainEntry(newChainActor, oldIndex);
+				self._replaceChainEntry = function(oldChainOp, newChainOp){
+					var oldIndex = self._deleteChainEntry(oldChainOp);
+					self._makeChainEntry(newChainOp, oldIndex);
 				};
 
 				// SHOW CHAIN OPTIONS
@@ -3087,7 +3131,7 @@ Joy.module("math", function(){
 					// To delete... which operand?
 					var elementIndex = self._chainEntries.indexOf(entry);
 					if(self._chainEntries.length>1){ // can't delete if just one
-						
+
 						// The operand...
 						var operandIndex;
 						if(elementIndex==0) operandIndex=elementIndex+1; // first
@@ -3120,18 +3164,18 @@ Joy.module("math", function(){
 							// It's an operand...
 							if(typeof operand==="string"){
 
-								// Get index of the actor...
+								// Get index of the op...
 								var index = self._chainEntries.indexOf(entry);
 
-								// Make the OPERAND actor(+data) & entry
+								// Make the OPERAND op(+data) & entry
 								index++;
-								var operandActor = self._makeNewChainActor({type:"choose", value:operand}, index);
-								self._makeChainEntry(operandActor, index);
+								var operandOp = self._makeNewChainOp({type:"choose", value:operand}, index);
+								self._makeChainEntry(operandOp, index);
 
-								// Make the NUMBER actor(+data) & entry (just the number 2, why hot)
+								// Make the NUMBER op(+data) & entry (just the number 2, why hot)
 								index++;
-								var numberActor = self._makeNewChainActor({type:"number_raw", value:2}, index);
-								self._makeChainEntry(numberActor, index);
+								var numberOp = self._makeNewChainOp({type:"number_raw", value:2}, index);
+								self._makeChainEntry(numberOp, index);
 
 							}else{
 
@@ -3139,9 +3183,9 @@ Joy.module("math", function(){
 								var indices = operand;
 								for(var i=indices.length-1; i>=0; i--){ // flip around coz DELETING
 									var indexToDelete = indices[i];
-									var actorToDelete = self._chainEntries[indexToDelete].actor;
-									self._deleteChainActor(actorToDelete);
-									self._deleteChainEntry(actorToDelete);
+									var opToDelete = self._chainEntries[indexToDelete].op;
+									self._deleteChainOp(opToDelete);
+									self._deleteChainEntry(opToDelete);
 								}
 
 							}
@@ -3154,17 +3198,17 @@ Joy.module("math", function(){
 
 				};
 
-				// For each chain actor, put in that entry
-				for(var i=0; i<self.chainActors.length; i++){
-					var chainActor = self.chainActors[i];
-					self._makeChainEntry(chainActor);
+				// For each chain op, put in that entry
+				for(var i=0; i<self.chainOps.length; i++){
+					var chainOp = self.chainOps[i];
+					self._makeChainEntry(chainOp);
 				}
 
 			},
 			onget: function(my){
 
 				// no variables?
-				if(my.actor.noVariables){
+				if(my.op.noVariables){
 					return _old.onget(my);
 				}
 
@@ -3176,25 +3220,25 @@ Joy.module("math", function(){
 				for(var i=0; i<my.data.chain.length; i+=2){
 
 					// Synched indices!
-					var chainActor = my.actor.chainActors[i]; 
+					var chainOp = my.op.chainOps[i];
 
 					// Evaluate element
 					var num;
-					switch(chainActor.type){
+					switch(chainOp.type){
 						case "number_raw":
-							num = chainActor.get(my.target);
+							num = chainOp.get(my.target);
 							break;
 						case "variableName":
 							var _variables = my.target._variables;
-							var varname = chainActor.get(my.target); // it's just a synchronized string
+							var varname = chainOp.get(my.target); // it's just a synchronized string
 							num = _variables[varname];
-							break; 
+							break;
 					}
 
 					// Any operator before it?
 					if(i>0){
-						var operandActor = my.actor.chainActors[i-1];
-						var op = operandActor.get();
+						var operandOp = my.op.chainOps[i-1];
+						var op = operandOp.get();
 						nums_and_ops.push(op);
 					}
 
@@ -3267,9 +3311,9 @@ Joy.module("math", function(){
 	Joy.add({
 		name: "Set [number]",
 		type: "math/set",
-		tags: ["math", "action"],
+		tags: ["math", "op"],
 		init: "Set {id:'varname', type:'variableName', variableType:'number'} to {id:'value', type:'number'}",
-		onact: function(my){
+		onexecute: function(my){
 			var _variables = my.target._variables;
 			var varname = my.data.varname; // it's just a synchronized string
 			_variables[varname] = my.data.value; // Set the variable
@@ -3282,10 +3326,10 @@ Joy.module("math", function(){
 
 	****************/
 	Joy.add({
-	
+
 		name: "Do math to [number]",
 		type: "math/operation",
-		tags: ["math", "action"],
+		tags: ["math", "op"],
 
 		init: JSON.stringify({
 			id:'operation', type:'choose',
@@ -3299,7 +3343,7 @@ Joy.module("math", function(){
 		})+" {id:'varname', type:'variableName', variableType:'number', startWithExisting:true}"
 		+" by {id:'value', type:'number'}",
 
-		onact: function(my){
+		onexecute: function(my){
 
 			var vars = my.target._variables;
 			var varname = my.data.varname;
@@ -3324,28 +3368,28 @@ Joy.module("math", function(){
 	Joy.add({
 		name: "If [math] then...",
 		type: "math/if",
-		tags: ["math", "action"],
+		tags: ["math", "op"],
 		init: "If {id:'value1', type:'number'} "+
 			  "{id:'test', type:'choose', options:['<','≤','=','≥','>'], placeholder:'='} "+
 			  "{id:'value2', type:'number'}, then: "+
-			  "{id:'actions', type:'actions', resetVariables:false}",
-		onact: function(my){
+			  "{id:'ops', type:'ops', resetVariables:false}",
+		onexecute: function(my){
 
 			var value1 = my.data.value1;
 			var value2 = my.data.value2;
 
 			var result;
 			switch(my.data.test){
-				case '<': 
+				case '<':
 					result = value1<value2;
 					break;
-				case '≤': 
+				case '≤':
 					result = value1<=value2;
 					break;
-				case '=': 
+				case '=':
 					result = value1==value2;
 					break;
-				case '≥': 
+				case '≥':
 					result = value1>=value2;
 					break;
 				case '>':
@@ -3354,7 +3398,7 @@ Joy.module("math", function(){
 			}
 
 			if(result){
-				var message = my.actor.actions.act(my.target);
+				var message = my.op.ops.execute(my.target);
 				if(message=="STOP") return message; // STOP
 			}
 
@@ -3367,14 +3411,14 @@ Joy.module("random", function(){
 	Joy.add({
 		name: "With a X% chance...",
 		type: "random/if",
-		tags: ["random", "action"],
+		tags: ["random", "op"],
 		init: "With a {id:'chance', type:'number', min:0, max:100, placeholder:50}% chance, do:"+
-			  "{id:'actions', type:'actions', resetVariables:false}",
-		onact: function(my){
-			
+			  "{id:'ops', type:'ops', resetVariables:false}",
+		onexecute: function(my){
+
 			var probability = my.data.chance/100;
 			if(Math.random() < probability){
-				var message = my.actor.actions.act(my.target);
+				var message = my.op.ops.execute(my.target);
 				if(message=="STOP") return message; // STOP
 			}
 
@@ -3389,11 +3433,11 @@ Joy.module("random", function(){
 	Joy.add({
 		name: "Set random [number]",
 		type: "random/set",
-		tags: ["random", "action"],
+		tags: ["random", "op"],
 		init: "Set {id:'varname', type:'variableName', variableType:'number'} to a random "+
 			  "{id:'numtype', type:'choose', options:['number','integer'], placeholder:'number'} between "+
 			  "{id:'min', type:'number', placeholder:1} and {id:'max', type:'number', placeholder:100}",
-		onact: function(my){
+		onexecute: function(my){
 
 			var _variables = my.target._variables;
 			var varname = my.data.varname; // it's just a synchronized string
